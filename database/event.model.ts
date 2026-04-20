@@ -2,7 +2,7 @@ import { HydratedDocument, Model, Schema, model, models } from "mongoose"
 
 export interface EventAttrs {
   title: string
-  slug: string
+  slug?: string
   description: string
   overview: string
   image: string
@@ -25,7 +25,7 @@ type EventModel = Model<EventAttrs>
 const eventSchema = new Schema<EventAttrs, EventModel>(
   {
     title: { type: String, required: true, trim: true },
-    slug: { type: String, unique: true, trim: true },
+    slug: { type: String, required: true, unique: true, trim: true },
     description: { type: String, required: true, trim: true },
     overview: { type: String, required: true, trim: true },
     image: { type: String, required: true, trim: true },
@@ -114,6 +114,18 @@ const normalizeTime = (value: string): string => {
   throw new Error("time must be in HH:mm or h:mm AM/PM format.")
 }
 
+eventSchema.pre("validate", function (this: EventDocument) {
+  // Generate slug before validation so `slug` can remain required at schema level.
+  this.title = ensureNonEmpty("title", this.title)
+  if (this.isModified("title") || !this.slug) {
+    const generatedSlug = slugify(this.title)
+    if (!generatedSlug) {
+      throw new Error("Unable to generate a slug from title.")
+    }
+    this.slug = generatedSlug
+  }
+})
+
 eventSchema.pre("save", function (this: EventDocument) {
   // Validate and normalize required text fields before persistence.
   this.title = ensureNonEmpty("title", this.title)
@@ -134,14 +146,6 @@ eventSchema.pre("save", function (this: EventDocument) {
   this.date = normalizeDateToIso(ensureNonEmpty("date", this.date))
   this.time = normalizeTime(ensureNonEmpty("time", this.time))
 
-  // Regenerate slug only when title changes.
-  if (this.isModified("title")) {
-    const generatedSlug = slugify(this.title)
-    if (!generatedSlug) {
-      throw new Error("Unable to generate a slug from title.")
-    }
-    this.slug = generatedSlug
-  }
 })
 
 export const Event = (models.Event as EventModel) || model<EventAttrs>("Event", eventSchema)

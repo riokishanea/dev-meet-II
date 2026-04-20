@@ -1,11 +1,5 @@
 import mongoose from "mongoose"
 
-const MONGODB_URI = process.env.MONGODB_URI
-
-if (!MONGODB_URI) {
-  throw new Error("Missing MONGODB_URI environment variable.")
-}
-
 type MongooseConnection = typeof mongoose
 
 interface MongooseCache {
@@ -38,10 +32,14 @@ export async function connectToDatabase(): Promise<MongooseConnection> {
   }
 
   if (!cached.promise) {
+    const mongoUri = process.env.MONGODB_URI
+    if (!mongoUri) {
+      throw new Error("Missing MONGODB_URI environment variable.")
+    }
     // Create one shared connection promise to prevent race conditions when
     // multiple requests try to connect at the same time.
     cached.promise = mongoose
-      .connect(MONGODB_URI, {
+      .connect(mongoUri, {
         bufferCommands: false,
       })
       .then((mongooseInstance) => mongooseInstance)
