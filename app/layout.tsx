@@ -21,11 +21,12 @@ const martianMono = Martian_Mono({
 export const metadata: Metadata = {
     title: "DevEvent",
     description: "The Hub For Every Dev Event You Mustn't Miss",
+    icons: {
+        icon: "/icons/logo.png",
+    },
 };
 
-export default function RootLayout({
-                                       children,
-                                   }: Readonly<{
+export default function RootLayout({children}: Readonly<{
     children: React.ReactNode;
 }>) {
     return (

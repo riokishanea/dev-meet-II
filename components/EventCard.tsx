@@ -10,10 +10,10 @@ interface Props{
     time: string;
 }
 
-const EventCard = ({title, image,slug, place, date, time} : Props) => {
+const EventCard = ({title, image, place, date, time} : Props) => {
     return (
         <Link href={`/events`} id="event-card">
-            <Image src={image} alt={title} width={410} height={300}/>
+            <Image className="poster" src={image} alt={title} width={410} height={300}/>
 
             <div className="flex flex-row gap-2">
                 <Image src="/icons/pin.svg" alt="location" width={14} height={14}/>
