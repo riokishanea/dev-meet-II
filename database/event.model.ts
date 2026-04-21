@@ -1,5 +1,7 @@
 import { HydratedDocument, Model, Schema, model, models } from "mongoose"
 
+// This interface describes the shape of an event in TypeScript.
+// It helps editors and the compiler understand which fields an event should have.
 export interface EventAttrs {
   title: string
   slug?: string
@@ -19,9 +21,14 @@ export interface EventAttrs {
   updatedAt?: Date
 }
 
+// A hydrated document is the full Mongoose document instance you work with at runtime.
+// It includes both the event data and Mongoose helper methods like `isModified`.
 type EventDocument = HydratedDocument<EventAttrs>
+
+// This type describes the Event model itself, which is used to create/query documents.
 type EventModel = Model<EventAttrs>
 
+// The schema is the database rulebook: it defines which fields exist and the basic rules for each one.
 const eventSchema = new Schema<EventAttrs, EventModel>(
   {
     title: { type: String, required: true, trim: true },
@@ -42,8 +49,11 @@ const eventSchema = new Schema<EventAttrs, EventModel>(
   { timestamps: true }
 )
 
+// Create a database index for the slug so lookups are faster and duplicate slugs are blocked.
 eventSchema.index({ slug: 1 }, { unique: true })
 
+// Convert a human-readable title into a URL-friendly slug.
+// Example: "My First Event!" -> "my-first-event"
 const slugify = (value: string): string =>
   value
     .toLowerCase()
@@ -53,6 +63,8 @@ const slugify = (value: string): string =>
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "")
 
+// Ensure a string is not empty after trimming spaces.
+// This gives clearer error messages than relying only on Mongoose's default required check.
 const ensureNonEmpty = (fieldName: string, value: string): string => {
   const normalized = value.trim()
   if (!normalized) {
@@ -61,6 +73,8 @@ const ensureNonEmpty = (fieldName: string, value: string): string => {
   return normalized
 }
 
+// Ensure the value is a non-empty array of non-empty strings.
+// Used for fields like `agenda` and `tags`.
 const ensureStringArray = (fieldName: string, value: string[]): string[] => {
   if (!Array.isArray(value) || value.length === 0) {
     throw new Error(`${fieldName} must contain at least one item.`)
@@ -75,6 +89,8 @@ const ensureStringArray = (fieldName: string, value: string[]): string[] => {
   })
 }
 
+// Convert any valid date input into ISO format so dates are stored consistently.
+// Example output: "2026-04-21T00:00:00.000Z"
 const normalizeDateToIso = (value: string): string => {
   const parsed = new Date(value)
   if (Number.isNaN(parsed.getTime())) {
@@ -83,9 +99,12 @@ const normalizeDateToIso = (value: string): string => {
   return parsed.toISOString()
 }
 
+// Accept either 24-hour time ("18:30") or 12-hour time ("6:30 PM")
+// and normalize everything to 24-hour HH:mm format.
 const normalizeTime = (value: string): string => {
   const input = value.trim()
 
+  // Matches values like 9:05 or 21:05.
   const twentyFourHourMatch = input.match(/^([01]?\d|2[0-3]):([0-5]\d)$/)
   if (twentyFourHourMatch) {
     const hours = twentyFourHourMatch[1].padStart(2, "0")
@@ -93,6 +112,7 @@ const normalizeTime = (value: string): string => {
     return `${hours}:${minutes}`
   }
 
+  // Matches values like 9:05 AM or 12:45 pm.
   const twelveHourMatch = input.match(
     /^(0?[1-9]|1[0-2]):([0-5]\d)\s?(AM|PM)$/i
   )
@@ -114,6 +134,8 @@ const normalizeTime = (value: string): string => {
   throw new Error("time must be in HH:mm or h:mm AM/PM format.")
 }
 
+// `pre("validate")` runs before Mongoose validates the document.
+// That makes it the right place to generate a missing slug from the title.
 eventSchema.pre("validate", function (this: EventDocument) {
   // Generate slug before validation so `slug` can remain required at schema level.
   this.title = ensureNonEmpty("title", this.title)
@@ -126,6 +148,8 @@ eventSchema.pre("validate", function (this: EventDocument) {
   }
 })
 
+// `pre("save")` runs right before the document is written to MongoDB.
+// We use it to clean and normalize values so the database stays consistent.
 eventSchema.pre("save", function (this: EventDocument) {
   // Validate and normalize required text fields before persistence.
   this.title = ensureNonEmpty("title", this.title)
@@ -145,7 +169,8 @@ eventSchema.pre("save", function (this: EventDocument) {
   // Keep date/time in consistent storage formats.
   this.date = normalizeDateToIso(ensureNonEmpty("date", this.date))
   this.time = normalizeTime(ensureNonEmpty("time", this.time))
-
 })
 
+// Reuse an existing compiled model if it already exists.
+// This avoids model redefinition errors during development/hot reloads.
 export const Event = (models.Event as EventModel) || model<EventAttrs>("Event", eventSchema)
